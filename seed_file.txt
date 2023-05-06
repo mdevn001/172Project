@@ -1,2 +1,10 @@
-https://www.scrapethissite.com
-https://quotes.toscrape.com
+https://www.ucr.edu
+https://www.cs.ucr.edu
+https://www.engr.ucr.edu
+https://chass.ucr.edu
+https://business.ucr.edu
+https://www.ucrhealth.org
+https://medschool.ucr.edu
+https://cnas.ucr.edu
+https://education.ucr.edu
+https://spp.ucr.edu
