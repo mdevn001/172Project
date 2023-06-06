@@ -121,11 +121,12 @@ def getrestricted_domains(seeds):
             result = result.text
             for line in result.split("\n"):
                 if line.startswith('Disallow:'):
-                    split = line.split(' ', maxsplit=1)
-                    domain = split[1].strip()
-                    domain = domain.replace('*','') # some robots use * to dictate any
-                    if  domain not in restricted_domains:
-                        restricted_domains.append(line)
+                    if(line != 'Disallow:'):
+                        split = line.split(' ', maxsplit=1)
+                        domain = split[1].strip()
+                        domain = domain.replace('*','') # some robots use * to dictate any
+                        if  domain not in restricted_domains:
+                            restricted_domains.append(line)
                         
                     #adds any relative paths to our seeds
                 if line.startswith('Allow:'):
@@ -178,8 +179,6 @@ hashes = [] #hashed documents for comparing similiarity
 #add all the seeds to the queue
 for node in seed_nodes:
     q.put(node)
-
-
 
 def jsonify_page(soup,output_dir):
     
@@ -250,9 +249,9 @@ while (not q.empty() and downloaded_pages < max_pages):
          #add it to visited list /improve this later for checking similarity etc??
         visited.append(node.url)
         try:
-            result = requests.get(node.url)
+            result = requests.get(node.url,headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)}"})
             print("visited: "+ node.url + " depth: " + str(node.depth)+ " Current Page Count :" +str(downloaded_pages))
-        
+            #print(result.status_code)
             if(result.status_code == 200): #ok
            
                 htmldoc = result.text
