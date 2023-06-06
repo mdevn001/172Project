@@ -3,6 +3,7 @@ import sys
 import requests
 import queue
 import copy
+import json
 from simhash import Simhash
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -14,7 +15,7 @@ import time
 
 restricted_extensions= ['.pdf','.jpeg','.jpg','.doc','.txt','.rtf','.wpd','.avi','mpg','.wmv','.vob','.flv','.3gp',
                         '.mpg3','.wma','.wav','.mid''.java','.py','.cs','.php','.swift','.vb','.rss','.css','.cer',
-                        '.asp','.aspx','.bmp','.tif','.gif','.png','.js$','.js','.svg']
+                        '.asp','.aspx','.bmp','.tif','.gif','.png','.js$','.js','.svg','#','.pptx','.JPG']
 
 def extension_valid(string):
     
@@ -157,7 +158,7 @@ output_dir = sys.argv[4]
 #create directory
 createDirectory(output_dir)
 
-page_request_delay = 1 # every 20 seconds send 5 requests or 15 requests a min
+page_request_delay = 2 # every 20 seconds send 5 requests or 15 requests a min
 
 seeds = getseedsFromFile(sys.argv[1])
 seed_nodes = []
@@ -179,42 +180,115 @@ hashes = [] #hashed documents for comparing similiarity
 for node in seed_nodes:
     q.put(node)
 
-def save_html_page(soup,output_dir):
-    result = urlsplit(node.url)
-    filename =result.hostname+result.path
-    filename =output_dir+'/'+filename.replace('/','_')+".html"
-    file = open(filename,'w+',encoding='utf-8')
-    file.write(str(soup))
-    file.close()
+
+
+def jsonify_page(soup,output_dir):
+    
+    url = node.url
+    content =[]
+    
+    title = "none"
+    if(soup.title is not None):
+        title = soup.title.text
+    """
+    paragraphs = soup.findAll('p')
+    text_span = soup.find_all('span', attrs = {'class' : 'text'})
+    list_text = soup.find_all('li')
+
+    if(paragraphs is not None):
+        for p in paragraphs:
+            if(len(p.text) >0):
+                s = p.text.strip()
+                s = s.replace('\n',' ')
+                content.append(s)
+            
+    if(text_span is not None):
+        for txt in text_span:
+            if(len(txt.text) >0):
+                s = txt.text.strip()
+                s = s.replace('\n',' ')
+                content.append(s)
+                
+    if(list_text is not None):
+        for li in list_text:
+            if(len(li.text) >0):
+                s = li.text.strip()
+                s = s.replace('\n',' ')
+                content.append(s)
+       """
+       
+    body ="";
+    if(soup.get_text() is not None):
+        body = soup.get_text("|",strip=True)
+            
+    data = {'title': title, 'url': url,"body": body}
+    
+    return data
+    
+    #result = urlsplit(node.url)
+    #filename =result.hostname+result.path
+    #filename =output_dir+'/'+filename.replace('/','_')+".html"
+    #file = open(filename,'w+',encoding='utf-8')
+    #file.write(str(soup))
+    #file.close()
  
 downloaded_pages = 0  
 max_pages = 10000
+json_data =[]
+
+#create file first
+filename =output_dir+'/'+'data.json'
+file = open(filename,'w+',encoding='utf-8')
+file.write('[\n')
+file.close()
 
 while (not q.empty() and downloaded_pages < max_pages):
-    node = q.get()   
+    node = q.get()
+   
+     
      #proceed only if the node we found not visited or 5  nodes deep from  seed nodes
     if(node.url not in visited and node.depth < hops):
          #add it to visited list /improve this later for checking similarity etc??
         visited.append(node.url)
-        result = requests.get(node.url)
+        try:
+            result = requests.get(node.url)
+            print("visited: "+ node.url + " depth: " + str(node.depth)+ " Current Page Count :" +str(downloaded_pages))
         
-        if(result.status_code == 200): #ok
+            if(result.status_code == 200): #ok
            
-            htmldoc = result.text
-            soup = BeautifulSoup(htmldoc,'html.parser')
+                htmldoc = result.text
+                soup = BeautifulSoup(htmldoc,'html.parser')
        
         #get the  links founds in the webpage and add them to queue
-            child_nodes = get_children(soup,node,restricted_domains,seed_nodes)
-            for child_node in child_nodes:
-                q.put(child_node)
+                child_nodes = get_children(soup,node,restricted_domains,seed_nodes)
+                for child_node in child_nodes:
+                    q.put(child_node)
+                
+                if(extension_valid(node.url)):   
+                    data = jsonify_page(soup,output_dir)
+                
+                    with open(output_dir+'/'+'data.json','a',encoding='UTF-8') as f:
+                        if(downloaded_pages > 0):
+                            f.write(',')
+                        json.dump(data,f,indent=8,ensure_ascii=False)
+                
+                    downloaded_pages = downloaded_pages +1
+                #print("visited: "+ node.url + " depth: " + str(node.depth))
+                    time.sleep(page_request_delay)
         
-            save_html_page(soup,output_dir)
-            downloaded_pages = downloaded_pages +1
-            print("visited: "+ node.url + " depth: " + str(node.depth))
-            time.sleep(page_request_delay)
+        except KeyboardInterrupt:  
+            print("KEYBOARD PRESS EXIT")
+            exit()
+        except:
+            print("something went wrong with url: "+ node.url)
+            
+    if q.empty():
+        print("finished all links crawled in queue.")
+    else:
+        if(downloaded_pages>=max_pages):
+            print("we have hit the document download limit : " + str(max_pages) +" pages")
+               
+file = open(filename,'a',encoding='utf-8')
+file.write('\n]\n')
+file.close()
 
-if q.empty():
-    print("finished all links crawled in queue.")
-else:
-     if(downloaded_pages>=max_pages):
-         print("we have hit the document download limit : " + max_pages +"pages")
