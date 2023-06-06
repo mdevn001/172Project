@@ -4,7 +4,6 @@ import requests
 import queue
 import copy
 import json
-from simhash import Simhash
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from urllib.parse import urlsplit
